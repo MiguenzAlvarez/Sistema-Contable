@@ -25,13 +25,22 @@ public class BarraNavegacion {
                 Graphics2D g2 = (Graphics2D) g.create();
                 try {
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(255, 255, 255, 50));
+                    // No dependemos de emojis: no todos los escritorios Linux
+                    // incluidos en Docker tienen una tipografía con esos glifos.
+                    g2.setColor(new Color(255, 255, 255, 62));
                     g2.fillOval(0, 0, TAMANIO_ICONO, TAMANIO_ICONO);
                     g2.setColor(Color.WHITE);
-                    g2.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 22));
-                    FontMetrics fm = g2.getFontMetrics();
-                    String simbolo = "📖";
-                    g2.drawString(simbolo, (TAMANIO_ICONO - fm.stringWidth(simbolo)) / 2, 31);
+                    g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    // Libro mayor abierto: un ícono vectorial siempre visible.
+                    g2.drawRoundRect(11, 12, 11, 21, 2, 2);
+                    g2.drawRoundRect(23, 12, 11, 21, 2, 2);
+                    g2.drawLine(23, 12, 23, 34);
+                    g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(14, 18, 19, 18);
+                    g2.drawLine(14, 23, 19, 23);
+                    g2.drawLine(26, 18, 31, 18);
+                    g2.drawLine(26, 23, 31, 23);
                 } finally {
                     g2.dispose();
                 }
@@ -125,23 +134,39 @@ public class BarraNavegacion {
     private static JButton crearControl(String texto, String descripcion, java.util.function.Consumer<Window> accion) {
         JButton btn = new JButton(texto) {
             @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (getModel().isRollover()) {
-                    g2.setColor(new Color(255, 255, 255, 40));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    Color base = switch (texto) {
+                        case "×" -> new Color(220, 53, 69);
+                        case "□" -> new Color(72, 104, 170);
+                        default -> new Color(45, 118, 210);
+                    };
+                    Color fondo = getModel().isPressed() ? base.darker()
+                            : getModel().isRollover() ? base.brighter() : base;
+                    g2.setColor(fondo);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                    g2.setColor(new Color(255, 255, 255, 115));
+                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 9, 9);
+
+                    g2.setColor(Color.WHITE);
+                    g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    int cx = getWidth() / 2;
+                    int cy = getHeight() / 2;
+                    if ("−".equals(texto)) g2.drawLine(cx - 6, cy, cx + 6, cy);
+                    else if ("□".equals(texto)) g2.drawRoundRect(cx - 6, cy - 5, 12, 10, 2, 2);
+                    else {
+                        g2.drawLine(cx - 5, cy - 5, cx + 5, cy + 5);
+                        g2.drawLine(cx + 5, cy - 5, cx - 5, cy + 5);
+                    }
+                } finally {
+                    g2.dispose();
                 }
-                g2.setColor(Color.WHITE);
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
-                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
             }
         };
         btn.setToolTipText(descripcion);
-        btn.setPreferredSize(new Dimension(38, 28));
+        btn.setPreferredSize(new Dimension(34, 30));
         btn.setOpaque(false); btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setFocusPainted(false);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addActionListener(e -> accion.accept(SwingUtilities.getWindowAncestor(btn)));
         return btn;
