@@ -44,9 +44,9 @@ El esquema que inicializa Docker está en `docker/mysql/init/01_schema.sql`. Los
 ## Libro IVA
 
 La aplicación incluye Libro IVA Compras y Ventas. En instalaciones existentes,
-ejecutar una única vez `sql/05_operaciones_iva.sql` para añadir las columnas del
-módulo sin borrar los registros ya cargados. En una instalación Docker nueva el
-esquema se crea completo automáticamente.
+ejecutar una única vez `sql/05_operaciones_iva.sql`: el script crea las tablas
+si aún no existen y añade las columnas faltantes sin borrar los registros ya
+cargados. En una instalación Docker nueva el esquema se crea completo automáticamente.
 
 Si ya existe el volumen de Docker de una versión anterior, aplicar la migración
 antes de reiniciar la aplicación:
