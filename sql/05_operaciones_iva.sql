@@ -11,6 +11,18 @@ SET @ddl_asiento = (SELECT IF(COUNT(*) = 0,
 PREPARE migracion_asiento FROM @ddl_asiento;
 EXECUTE migracion_asiento;
 DEALLOCATE PREPARE migracion_asiento;
+
+-- Plan mínimo opcional para instalaciones que aún no tienen cuentas. INSERT
+-- IGNORE preserva cualquier cuenta creada por el usuario.
+INSERT IGNORE INTO cuentas (codigo, grupo_id, tipo, rubro_id, numero_cuenta, nombre, saldo, tipo_saldo) VALUES
+('1.1.01.01', 1, 1, 1, 1, 'Caja', 0, 'D'),
+('1.1.01.02', 1, 1, 1, 2, 'Bancos', 0, 'D'),
+('1.1.02.01', 1, 1, 2, 1, 'Créditos por Ventas', 0, 'D'),
+('1.1.02.02', 1, 1, 2, 2, 'IVA Crédito Fiscal', 0, 'D'),
+('2.1.05.01', 2, 1, 5, 1, 'Proveedores', 0, 'A'),
+('2.1.05.02', 2, 1, 5, 2, 'IVA Débito Fiscal', 0, 'A'),
+('4.0.09.01', 4, 0, 9, 1, 'Ventas', 0, 'A'),
+('5.0.10.01', 5, 0, 10, 1, 'Compras', 0, 'D');
 SET @ddl_asiento = (SELECT IF(COUNT(*) = 0,
     'ALTER TABLE asientos ADD COLUMN total_haber DECIMAL(11,2) NOT NULL DEFAULT 0',
     'SELECT 1') FROM information_schema.columns

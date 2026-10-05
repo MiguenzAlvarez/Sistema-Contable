@@ -77,6 +77,17 @@ INSERT INTO rubros (grupo_id, tipo, codigo, nombre) VALUES
 (4, 0, '09', 'Ventas'),
 (5, 0, '10', 'Gastos');
 
+-- Plan mínimo para registrar asientos, compras y ventas con IVA.
+INSERT INTO cuentas (codigo, grupo_id, tipo, rubro_id, numero_cuenta, nombre, saldo, tipo_saldo) VALUES
+('1.1.01.01', 1, 1, 1, 1, 'Caja', 0, 'D'),
+('1.1.01.02', 1, 1, 1, 2, 'Bancos', 0, 'D'),
+('1.1.02.01', 1, 1, 2, 1, 'Créditos por Ventas', 0, 'D'),
+('1.1.02.02', 1, 1, 2, 2, 'IVA Crédito Fiscal', 0, 'D'),
+('2.1.05.01', 2, 1, 5, 1, 'Proveedores', 0, 'A'),
+('2.1.05.02', 2, 1, 5, 2, 'IVA Débito Fiscal', 0, 'A'),
+('4.0.09.01', 4, 0, 9, 1, 'Ventas', 0, 'A'),
+('5.0.10.01', 5, 0, 10, 1, 'Compras', 0, 'D');
+
 -- ------------------------------------------------------------
 -- ASIENTOS (cabecera del Libro Diario)
 -- numero: número correlativo visible para el usuario (1, 2, 3...)
