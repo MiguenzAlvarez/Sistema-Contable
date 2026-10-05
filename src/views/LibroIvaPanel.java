@@ -109,6 +109,10 @@ public class LibroIvaPanel extends JFrame {
         header.setPreferredSize(new Dimension(0, 88));
         header.setBorder(new EmptyBorder(10, 20, 10, 20));
 
+        JPanel izq = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
+        izq.setOpaque(false);
+
+        JLabel icono = BarraNavegacion.crearIconoLibro();
         JPanel titulos = new JPanel();
         titulos.setLayout(new BoxLayout(titulos, BoxLayout.Y_AXIS));
         titulos.setOpaque(false);
@@ -121,7 +125,9 @@ public class LibroIvaPanel extends JFrame {
         titulos.add(lblTitulo);
         titulos.add(lblSubtitulo);
 
-        header.add(titulos, BorderLayout.WEST);
+        izq.add(icono);
+        izq.add(titulos);
+        header.add(izq, BorderLayout.WEST);
         header.add(BarraNavegacion.crearConControles(LibroIvaPanel.class), BorderLayout.EAST);
         return header;
     }

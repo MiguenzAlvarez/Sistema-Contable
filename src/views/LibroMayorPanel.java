@@ -104,6 +104,8 @@ public class LibroMayorPanel extends JFrame {
         JPanel izq = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
         izq.setOpaque(false);
 
+        JLabel icono = BarraNavegacion.crearIconoLibro();
+
         JPanel titulos = new JPanel();
         titulos.setLayout(new BoxLayout(titulos, BoxLayout.Y_AXIS));
         titulos.setOpaque(false);
@@ -116,6 +118,7 @@ public class LibroMayorPanel extends JFrame {
         titulos.add(lblTitulo);
         titulos.add(lblSubtitulo);
 
+        izq.add(icono);
         izq.add(titulos);
         header.add(izq, BorderLayout.WEST);
         header.add(BarraNavegacion.crearConControles(LibroMayorPanel.class), BorderLayout.EAST);

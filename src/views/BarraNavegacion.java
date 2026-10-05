@@ -12,6 +12,35 @@ import java.awt.geom.RoundRectangle2D;
 // a la misma ventana en la que ya estás parado.
 public class BarraNavegacion {
 
+    /** Tamaño del distintivo visual que acompaña el nombre de cada módulo. */
+    private static final int TAMANIO_ICONO = 46;
+
+    /**
+     * Devuelve el ícono circular común de los libros contables. Centralizarlo
+     * evita que un módulo quede sin el distintivo al cambiar el encabezado.
+     */
+    public static JLabel crearIconoLibro() {
+        JLabel icono = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(255, 255, 255, 50));
+                    g2.fillOval(0, 0, TAMANIO_ICONO, TAMANIO_ICONO);
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 22));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String simbolo = "📖";
+                    g2.drawString(simbolo, (TAMANIO_ICONO - fm.stringWidth(simbolo)) / 2, 31);
+                } finally {
+                    g2.dispose();
+                }
+            }
+        };
+        icono.setPreferredSize(new Dimension(TAMANIO_ICONO, TAMANIO_ICONO));
+        return icono;
+    }
+
     /** Barra completa: navegación entre módulos y controles de la ventana real. */
     public static JPanel crearConControles(Class<?> pantallaActual) {
         JPanel area = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
@@ -84,8 +113,8 @@ public class BarraNavegacion {
 
             actual.setContentPane(contenido);
             actual.setTitle(siguiente.getTitle());
-            actual.setMinimumSize(siguiente.getMinimumSize());
-            actual.setSize(siguiente.getSize());
+            // La ventana es siempre la misma: se preservan sus dimensiones
+            // actuales para que cambiar de libro no provoque saltos visuales.
             actual.revalidate();
             actual.repaint();
             siguiente.dispose();

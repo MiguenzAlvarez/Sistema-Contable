@@ -159,19 +159,7 @@ public class LibroDiarioPanel extends JFrame {
         JPanel izq = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
         izq.setOpaque(false);
 
-        JLabel icono = new JLabel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(255, 255, 255, 50));
-                g2.fillOval(0, 0, 46, 46);
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 22));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("📖", (46 - fm.stringWidth("📖")) / 2, 31);
-            }
-        };
-        icono.setPreferredSize(new Dimension(46, 46));
+        JLabel icono = BarraNavegacion.crearIconoLibro();
 
         JPanel titulos = new JPanel();
         titulos.setLayout(new BoxLayout(titulos, BoxLayout.Y_AXIS));
