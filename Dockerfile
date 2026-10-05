@@ -3,6 +3,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn -B dependency:go-offline
 COPY src ./src
+COPY test ./test
 RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:21-jre-noble

@@ -3,6 +3,8 @@ package dao;
 import conexion.Conexion;
 import models.Asiento;
 import models.AsientoDetalle;
+import models.Cuenta;
+import models.RegistroIva;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,181 +15,200 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AsientoDAO {
+    private String ultimoError = "";
+    public String getUltimoError() { return ultimoError; }
 
     // ══════════════════════════════════════════════════════════════
-    //  CREAR ASIENTO (partida doble obligatoria)
+    //  CREAR ASIENTO (con actualización de saldos, transaccional)
     // ══════════════════════════════════════════════════════════════
-    // Devuelve:
-    //   "OK"             -> se guardó correctamente
-    //   "DESBALANCEADO"  -> la suma del Debe no coincide con la del Haber
-    //   "SIN_LINEAS"     -> no hay líneas de detalle o los importes están en 0
-    //   "ERROR"          -> error de base de datos (se hace rollback)
     public String crearAsiento(Asiento asiento) {
+        return crearAsiento(asiento, null, false);
+    }
+
+    public String crearAsiento(Asiento asiento, RegistroIva registroIva, boolean compra) {
+        ultimoError = "";
 
         List<AsientoDetalle> detalles = asiento.getDetalles();
-        if (detalles == null || detalles.isEmpty()) {
-            return "SIN_LINEAS";
-        }
+        if (detalles == null || detalles.isEmpty()) return "SIN_LINEAS";
 
         double sumaDebe = 0, sumaHaber = 0;
         for (AsientoDetalle d : detalles) {
-            sumaDebe  += d.getDebe();
+            if (!Double.isFinite(d.getDebe()) || !Double.isFinite(d.getHaber())
+                    || d.getDebe() < 0 || d.getHaber() < 0
+                    || (d.getDebe() > 0 && d.getHaber() > 0)) {
+                ultimoError = "Hay importes inválidos en el detalle.";
+                return "ERROR";
+            }
+            sumaDebe += d.getDebe();
             sumaHaber += d.getHaber();
         }
-        sumaDebe  = Math.round(sumaDebe  * 100) / 100.0;
+        sumaDebe = Math.round(sumaDebe * 100) / 100.0;
         sumaHaber = Math.round(sumaHaber * 100) / 100.0;
-
-        if (sumaDebe == 0 && sumaHaber == 0) {
-            return "SIN_LINEAS";
+        if (Math.abs(sumaDebe - sumaHaber) >= 0.005) return "DESBALANCEADO";
+        if (sumaDebe <= 0 || detalles.size() < 2) return "SIN_LINEAS";
+        if (registroIva != null && Math.abs(registroIva.getTotal() - sumaDebe) >= 0.005) {
+            ultimoError = "El total de IVA no coincide con el asiento.";
+            return "ERROR";
         }
 
-        // ── VALIDACIÓN CLAVE DE PARTIDA DOBLE ──────────────────────
-        // El sistema NUNCA permite guardar un asiento si Debe != Haber.
-        if (Math.abs(sumaDebe - sumaHaber) >= 0.005) {
-            return "DESBALANCEADO";
-        }
-
-        String sqlAsiento = "INSERT INTO asientos(numero, fecha, concepto) VALUES(?,?,?)";
-        String sqlDetalle = "INSERT INTO asiento_detalle(asiento_id, cuenta_codigo, debe, haber, orden) " +
-                             "VALUES(?,?,?,?,?)";
-        String sqlSaldoDeudor   = "UPDATE cuentas SET saldo = saldo + (? - ?) WHERE codigo = ? AND tipo_saldo = 'D'";
-        String sqlSaldoAcreedor = "UPDATE cuentas SET saldo = saldo + (? - ?) WHERE codigo = ? AND tipo_saldo = 'A'";
+        String sqlAsiento = "INSERT INTO asientos (numero, fecha, concepto, total_debe, total_haber) VALUES (?, ?, ?, ?, ?)";
+        String sqlDetalle = "INSERT INTO asiento_detalle (asiento_id, cuenta_codigo, debe, haber, orden) VALUES (?, ?, ?, ?, ?)";
 
         Connection conn = null;
         try {
             conn = Conexion.conectar();
-            if (conn == null) return "ERROR";
+            if (conn == null) { ultimoError = "No se pudo conectar a la base de datos."; return "ERROR"; }
+            // Serializa la asignación del correlativo entre ventanas/conexiones.
+            try (Statement lock = conn.createStatement();
+                 ResultSet rs = lock.executeQuery("SELECT GET_LOCK(CONCAT(DATABASE(), '.asientos'), 10)")) {
+                if (!rs.next() || rs.getInt(1) != 1) throw new SQLException("Hay otro asiento registrándose. Volvé a intentar.");
+            }
             conn.setAutoCommit(false);
 
-            synchronized (AsientoDAO.class) {
+            int idGenerado;
+            int siguienteNumero;
+            try (PreparedStatement pstAsiento = conn.prepareStatement(sqlAsiento, Statement.RETURN_GENERATED_KEYS)) {
 
-                int siguienteNumero = obtenerSiguienteNumero(conn);
+                siguienteNumero = obtenerSiguienteNumero(conn);
 
-                int asientoId;
-                try (PreparedStatement pst = conn.prepareStatement(sqlAsiento, Statement.RETURN_GENERATED_KEYS)) {
-                    pst.setInt(1, siguienteNumero);
-                    pst.setString(2, asiento.getFecha());
-                    pst.setString(3, asiento.getConcepto());
-                    pst.executeUpdate();
+                pstAsiento.setInt(1, siguienteNumero);
+                pstAsiento.setString(2, asiento.getFecha());
+                pstAsiento.setString(3, asiento.getConcepto());
+                pstAsiento.setDouble(4, sumaDebe);
+                pstAsiento.setDouble(5, sumaHaber);
+                pstAsiento.executeUpdate();
 
-                    try (ResultSet rs = pst.getGeneratedKeys()) {
-                        if (!rs.next()) throw new SQLException("No se pudo generar el ID del asiento");
-                        asientoId = rs.getInt(1);
+                try (ResultSet keys = pstAsiento.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        idGenerado = keys.getInt(1);
+                    } else {
+                        conn.rollback();
+                        return "ERROR";
                     }
                 }
-
-                int orden = 1;
-                for (AsientoDetalle d : detalles) {
-                    if (d.getDebe() == 0 && d.getHaber() == 0) continue;
-
-                    try (PreparedStatement pst = conn.prepareStatement(sqlDetalle)) {
-                        pst.setInt(1, asientoId);
-                        pst.setString(2, d.getCuentaCodigo());
-                        pst.setDouble(3, d.getDebe());
-                        pst.setDouble(4, d.getHaber());
-                        pst.setInt(5, orden++);
-                        pst.executeUpdate();
-                    }
-
-                    // Actualiza el saldo de la cuenta según su naturaleza:
-                    // cuentas Deudoras aumentan con el Debe, disminuyen con el Haber.
-                    // cuentas Acreedoras aumentan con el Haber, disminuyen con el Debe.
-                    try (PreparedStatement pstD = conn.prepareStatement(sqlSaldoDeudor)) {
-                        pstD.setDouble(1, d.getDebe());
-                        pstD.setDouble(2, d.getHaber());
-                        pstD.setString(3, d.getCuentaCodigo());
-                        pstD.executeUpdate();
-                    }
-                    try (PreparedStatement pstA = conn.prepareStatement(sqlSaldoAcreedor)) {
-                        pstA.setDouble(1, d.getHaber());
-                        pstA.setDouble(2, d.getDebe());
-                        pstA.setString(3, d.getCuentaCodigo());
-                        pstA.executeUpdate();
-                    }
-                }
-
-                conn.commit();
-                asiento.setNumero(siguienteNumero);
-                System.out.println("Asiento N° " + siguienteNumero + " guardado correctamente");
-                return "OK";
             }
 
+            int orden = 1;
+            try (PreparedStatement pstDetalle = conn.prepareStatement(sqlDetalle)) {
+                for (AsientoDetalle d : detalles) {
+                    pstDetalle.setInt(1, idGenerado);
+                    pstDetalle.setString(2, d.getCuentaCodigo());
+                    pstDetalle.setDouble(3, d.getDebe());
+                    pstDetalle.setDouble(4, d.getHaber());
+                    pstDetalle.setInt(5, orden++);
+                    pstDetalle.addBatch();
+                }
+                pstDetalle.executeBatch();
+            }
+
+            // Actualizar saldos de las cuentas afectadas, dentro de la misma transacción
+            for (AsientoDetalle d : detalles) {
+                aplicarMovimiento(conn, d.getCuentaCodigo(), d.getDebe(), d.getHaber());
+            }
+
+            String numeroIva = null;
+            if (registroIva != null) numeroIva = new LibroIvaDAO().registrar(conn, idGenerado, registroIva, compra);
+
+            conn.commit();
+            if (registroIva != null) registroIva.setNroComprobante(numeroIva);
+
+            asiento.setId(idGenerado);
+            asiento.setNumero(siguienteNumero);
+            asiento.setTotalDebe(sumaDebe);
+            asiento.setTotalHaber(sumaHaber);
+
+            System.out.println("Asiento creado correctamente: N° " + siguienteNumero);
+            return "OK";
+
         } catch (Exception e) {
+            ultimoError = e.getMessage() == null ? "Error al guardar." : e.getMessage();
             System.out.println("Error al crear asiento");
             System.out.println(e.getMessage());
-            try { if (conn != null) conn.rollback(); } catch (SQLException ignored) {}
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+            }
             return "ERROR";
         } finally {
-            try { if (conn != null) { conn.setAutoCommit(true); conn.close(); } } catch (SQLException ignored) {}
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
+            }
         }
     }
 
+    private void aplicarMovimiento(Connection conn, String codigo, double debe, double haber) throws SQLException {
+        String sql = "UPDATE cuentas SET saldo = saldo + CASE WHEN tipo_saldo IN ('D', 'Deudor') "
+            + "THEN ? - ? ELSE ? - ? END WHERE codigo = ?";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setDouble(1, debe); pst.setDouble(2, haber);
+            pst.setDouble(3, haber); pst.setDouble(4, debe); pst.setString(5, codigo);
+            if (pst.executeUpdate() != 1) throw new SQLException("No existe la cuenta " + codigo);
+        }
+    }
+
+    // Número correlativo mostrado al usuario (nunca se reutiliza, aunque se borren asientos)
     private int obtenerSiguienteNumero(Connection conn) throws SQLException {
         String sql = "SELECT COALESCE(MAX(numero), 0) + 1 AS siguiente FROM asientos";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) return rs.getInt("siguiente");
         }
         return 1;
     }
 
+    // Calcula el nuevo saldo de una cuenta según su naturaleza (Deudor/Acreedor)
+    private double calcularNuevoSaldo(Cuenta cuenta, double debe, double haber) {
+        if ("Deudor".equalsIgnoreCase(cuenta.getTipoSaldo())) {
+            return cuenta.getSaldo() + debe - haber;
+        } else {
+            return cuenta.getSaldo() + haber - debe;
+        }
+    }
+
+    private void actualizarSaldoEnTransaccion(Connection conn, String codigo, double nuevoSaldo) throws SQLException {
+        String sql = "UPDATE cuentas SET saldo = ? WHERE codigo = ?";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setDouble(1, nuevoSaldo);
+            pst.setString(2, codigo);
+            pst.executeUpdate();
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════
-    //  LISTAR ASIENTOS (cabecera + totales, orden cronológico)
+    //  LISTAR / BUSCAR ASIENTOS
     // ══════════════════════════════════════════════════════════════
     public List<Asiento> listarAsientos() {
-
         List<Asiento> lista = new ArrayList<>();
-        String sql = "SELECT a.id, a.numero, a.fecha, a.concepto, " +
-                     "       COALESCE(SUM(d.debe), 0)  AS total_debe, " +
-                     "       COALESCE(SUM(d.haber), 0) AS total_haber " +
-                     "FROM asientos a " +
-                     "LEFT JOIN asiento_detalle d ON d.asiento_id = a.id " +
-                     "GROUP BY a.id, a.numero, a.fecha, a.concepto " +
-                     "ORDER BY a.fecha ASC, a.numero ASC";
+        String sql = "SELECT id, numero, fecha, concepto, total_debe, total_haber FROM asientos ORDER BY id DESC";
 
-        try (
-                Connection conn = Conexion.conectar();
-                Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(sql)
-        ) {
-            while (rs.next()) {
-                lista.add(mapearAsiento(rs));
-            }
+        try (Connection conn = Conexion.conectar();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+
+            while (rs.next()) lista.add(mapearAsiento(rs));
+
         } catch (Exception e) {
             System.out.println("Error al listar asientos");
             System.out.println(e.getMessage());
         }
-
         return lista;
     }
 
-    // BUSCAR ASIENTOS POR CONCEPTO (para la barra de búsqueda)
     public List<Asiento> buscarPorConcepto(String texto) {
-
         List<Asiento> lista = new ArrayList<>();
-        String sql = "SELECT a.id, a.numero, a.fecha, a.concepto, " +
-                     "       COALESCE(SUM(d.debe), 0)  AS total_debe, " +
-                     "       COALESCE(SUM(d.haber), 0) AS total_haber " +
-                     "FROM asientos a " +
-                     "LEFT JOIN asiento_detalle d ON d.asiento_id = a.id " +
-                     "WHERE a.concepto LIKE ? " +
-                     "GROUP BY a.id, a.numero, a.fecha, a.concepto " +
-                     "ORDER BY a.fecha ASC, a.numero ASC";
+        String sql = "SELECT id, numero, fecha, concepto, total_debe, total_haber FROM asientos WHERE concepto LIKE ? ORDER BY id DESC";
 
-        try (
-                Connection conn = Conexion.conectar();
-                PreparedStatement pst = conn.prepareStatement(sql)
-        ) {
+        try (Connection conn = Conexion.conectar();
+             PreparedStatement pst = conn.prepareStatement(sql)) {
+
             pst.setString(1, "%" + texto + "%");
             try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    lista.add(mapearAsiento(rs));
-                }
+                while (rs.next()) lista.add(mapearAsiento(rs));
             }
+
         } catch (Exception e) {
             System.out.println("Error al buscar asientos");
             System.out.println(e.getMessage());
         }
-
         return lista;
     }
 
@@ -203,22 +224,18 @@ public class AsientoDAO {
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  LISTAR EL DETALLE (líneas Debe/Haber) DE UN ASIENTO
+    //  DETALLE DE UN ASIENTO (con nombre de cuenta vía JOIN)
     // ══════════════════════════════════════════════════════════════
     public List<AsientoDetalle> listarDetalle(int asientoId) {
-
         List<AsientoDetalle> lista = new ArrayList<>();
         String sql = "SELECT d.id, d.asiento_id, d.cuenta_codigo, c.nombre AS cuenta_nombre, " +
-                     "       d.debe, d.haber, d.orden " +
-                     "FROM asiento_detalle d " +
-                     "JOIN cuentas c ON c.codigo = d.cuenta_codigo " +
-                     "WHERE d.asiento_id = ? " +
-                     "ORDER BY d.orden ASC";
+                     "d.debe, d.haber, d.orden " +
+                     "FROM asiento_detalle d JOIN cuentas c ON c.codigo = d.cuenta_codigo " +
+                     "WHERE d.asiento_id = ? ORDER BY d.orden";
 
-        try (
-                Connection conn = Conexion.conectar();
-                PreparedStatement pst = conn.prepareStatement(sql)
-        ) {
+        try (Connection conn = Conexion.conectar();
+             PreparedStatement pst = conn.prepareStatement(sql)) {
+
             pst.setInt(1, asientoId);
             try (ResultSet rs = pst.executeQuery()) {
                 while (rs.next()) {
@@ -233,89 +250,73 @@ public class AsientoDAO {
                     ));
                 }
             }
+
         } catch (Exception e) {
-            System.out.println("Error al listar el detalle del asiento");
+            System.out.println("Error al listar detalle del asiento");
             System.out.println(e.getMessage());
         }
-
         return lista;
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  ELIMINAR ASIENTO (revierte el efecto en los saldos de cuentas)
+    //  ELIMINAR ASIENTO (revierte saldos, transaccional)
     // ══════════════════════════════════════════════════════════════
-    public String eliminarAsiento(int asientoId) {
-
-        String sqlDetalle = "SELECT cuenta_codigo, debe, haber FROM asiento_detalle WHERE asiento_id = ?";
-        String sqlSaldoDeudor   = "UPDATE cuentas SET saldo = saldo - (? - ?) WHERE codigo = ? AND tipo_saldo = 'D'";
-        String sqlSaldoAcreedor = "UPDATE cuentas SET saldo = saldo - (? - ?) WHERE codigo = ? AND tipo_saldo = 'A'";
-        String sqlEliminarDetalle = "DELETE FROM asiento_detalle WHERE asiento_id = ?";
-        String sqlEliminarAsiento = "DELETE FROM asientos WHERE id = ?";
-
+    public String eliminarAsiento(int id) {
         Connection conn = null;
         try {
             conn = Conexion.conectar();
             if (conn == null) return "ERROR";
+
             conn.setAutoCommit(false);
+            String sqlExiste = "SELECT id FROM asientos WHERE id = ? FOR UPDATE";
+            try (PreparedStatement pstExiste = conn.prepareStatement(sqlExiste)) {
+                pstExiste.setInt(1, id);
+                try (ResultSet rs = pstExiste.executeQuery()) {
+                    if (!rs.next()) return "NO_EXISTE";
+                }
+            }
 
-            List<Object[]> lineas = new ArrayList<>();
-            try (PreparedStatement pst = conn.prepareStatement(sqlDetalle)) {
-                pst.setInt(1, asientoId);
+            List<AsientoDetalle> detalles = new ArrayList<>();
+            try (PreparedStatement pst = conn.prepareStatement("SELECT cuenta_codigo, debe, haber FROM asiento_detalle WHERE asiento_id = ?")) {
+                pst.setInt(1, id);
                 try (ResultSet rs = pst.executeQuery()) {
-                    while (rs.next()) {
-                        lineas.add(new Object[]{
-                                rs.getString("cuenta_codigo"),
-                                rs.getDouble("debe"),
-                                rs.getDouble("haber")
-                        });
-                    }
+                    while (rs.next()) detalles.add(new AsientoDetalle(rs.getString(1), rs.getDouble(2), rs.getDouble(3)));
                 }
             }
 
-            if (lineas.isEmpty()) {
-                conn.rollback();
-                return "NO_EXISTE";
+            for (AsientoDetalle d : detalles) {
+                aplicarMovimiento(conn, d.getCuentaCodigo(), -d.getDebe(), -d.getHaber());
             }
-
-            for (Object[] linea : lineas) {
-                String codigo = (String) linea[0];
-                double debe  = (Double) linea[1];
-                double haber = (Double) linea[2];
-
-                try (PreparedStatement pstD = conn.prepareStatement(sqlSaldoDeudor)) {
-                    pstD.setDouble(1, debe);
-                    pstD.setDouble(2, haber);
-                    pstD.setString(3, codigo);
-                    pstD.executeUpdate();
-                }
-                try (PreparedStatement pstA = conn.prepareStatement(sqlSaldoAcreedor)) {
-                    pstA.setDouble(1, haber);
-                    pstA.setDouble(2, debe);
-                    pstA.setString(3, codigo);
-                    pstA.executeUpdate();
+            for (String tabla : new String[]{"iva_compras", "iva_ventas"}) {
+                try (PreparedStatement pst = conn.prepareStatement("DELETE FROM " + tabla + " WHERE asiento_id = ?")) {
+                    pst.setInt(1, id); pst.executeUpdate();
                 }
             }
 
-            try (PreparedStatement pst = conn.prepareStatement(sqlEliminarDetalle)) {
-                pst.setInt(1, asientoId);
-                pst.executeUpdate();
+            try (PreparedStatement pstDetalle = conn.prepareStatement("DELETE FROM asiento_detalle WHERE asiento_id = ?")) {
+                pstDetalle.setInt(1, id);
+                pstDetalle.executeUpdate();
             }
-            try (PreparedStatement pst = conn.prepareStatement(sqlEliminarAsiento)) {
-                pst.setInt(1, asientoId);
-                pst.executeUpdate();
+
+            try (PreparedStatement pstAsiento = conn.prepareStatement("DELETE FROM asientos WHERE id = ?")) {
+                pstAsiento.setInt(1, id);
+                pstAsiento.executeUpdate();
             }
 
             conn.commit();
-            System.out.println("Asiento eliminado correctamente");
             return "OK";
 
         } catch (Exception e) {
             System.out.println("Error al eliminar asiento");
             System.out.println(e.getMessage());
-            try { if (conn != null) conn.rollback(); } catch (SQLException ignored) {}
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+            }
             return "ERROR";
         } finally {
-            try { if (conn != null) { conn.setAutoCommit(true); conn.close(); } } catch (SQLException ignored) {}
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
+            }
         }
     }
 }

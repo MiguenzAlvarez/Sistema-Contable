@@ -7,8 +7,8 @@ import java.sql.SQLException;
 
 public class Conexion {
 
-    // DATOS DE MYSQL. Se pueden configurar por variables de entorno para
-    // ejecutar la aplicación dentro de Docker o contra una base externa.
+    // Datos configurables para Docker, desarrollo local o una base externa.
+    // No se guardan credenciales reales en el código fuente.
     private static final String HOST = variable("DB_HOST", "localhost");
     private static final String PORT = variable("DB_PORT", "3306");
     private static final String DATABASE = variable("DB_NAME", "economia_db");
@@ -21,6 +21,7 @@ public class Conexion {
         String valor = System.getenv(nombre);
         return valor == null || valor.isBlank() ? valorPredeterminado : valor;
     }
+
 
     // MÉTODO DE CONEXIÓN
     public static Connection conectar() {

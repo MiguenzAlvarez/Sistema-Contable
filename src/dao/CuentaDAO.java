@@ -3,12 +3,16 @@ package dao;
 import conexion.Conexion;
 import models.Cuenta;
 
+import java.sql.SQLException;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+
+
 
 public class CuentaDAO {
 
@@ -126,59 +130,6 @@ public class CuentaDAO {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    //  LISTAR CUENTAS
-    // ══════════════════════════════════════════════════════════════
-    public List<Cuenta> listarCuentas() {
-
-        List<Cuenta> lista = new ArrayList<>();
-        String sql = "SELECT * FROM cuentas ORDER BY codigo";
-
-        try (
-                Connection conn = Conexion.conectar();
-                Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(sql)
-        ) {
-
-            while (rs.next()) {
-                lista.add(mapearCuenta(rs));
-            }
-
-        } catch (Exception e) {
-            System.out.println("Error al listar cuentas");
-            System.out.println(e.getMessage());
-        }
-
-        return lista;
-    }
-
-    // BUSCAR CUENTAS POR NOMBRE (para la barra de búsqueda)
-    public List<Cuenta> buscarPorNombre(String texto) {
-
-        List<Cuenta> lista = new ArrayList<>();
-        String sql = "SELECT * FROM cuentas WHERE nombre LIKE ? ORDER BY codigo";
-
-        try (
-                Connection conn = Conexion.conectar();
-                PreparedStatement pst = conn.prepareStatement(sql)
-        ) {
-
-            pst.setString(1, "%" + texto + "%");
-
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    lista.add(mapearCuenta(rs));
-                }
-            }
-
-        } catch (Exception e) {
-            System.out.println("Error al buscar cuentas");
-            System.out.println(e.getMessage());
-        }
-
-        return lista;
-    }
-
     private Cuenta mapearCuenta(ResultSet rs) throws Exception {
         return new Cuenta(
                 rs.getString("codigo"),
@@ -275,4 +226,162 @@ public class CuentaDAO {
             return "ERROR";
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    //  OBTENER TODAS LAS CUENTAS
+    // ══════════════════════════════════════════════════════════════
+    public List<Cuenta> listarCuentas() {
+
+    List<Cuenta> lista = new ArrayList<>();
+
+    String sql = """
+            SELECT *
+            FROM cuentas
+            ORDER BY codigo
+            """;
+
+    try (Connection conn = Conexion.conectar();
+         Statement st = conn.createStatement();
+         ResultSet rs = st.executeQuery(sql)) {
+
+        while (rs.next()) {
+
+            Cuenta c = new Cuenta(
+
+                rs.getString("codigo"),
+
+                rs.getInt("grupo_id"),
+
+                rs.getInt("tipo"),
+
+                rs.getInt("rubro_id"),
+
+                rs.getInt("numero_cuenta"),
+
+                rs.getString("nombre"),
+
+                rs.getDouble("saldo"),
+
+                rs.getString("tipo_saldo")
+
+            );
+            lista.add(c);
+
+        }
+
+    } catch (SQLException ex) {
+
+        System.out.println(ex.getMessage());
+
+    }
+
+    return lista;
+
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  BUSCAR CUENTAS POR NOMBRE (para la barra de búsqueda del panel)
+    // ══════════════════════════════════════════════════════════════
+    public List<Cuenta> buscarPorNombre(String texto) {
+
+        List<Cuenta> lista = new ArrayList<>();
+        String sql = "SELECT * FROM cuentas WHERE nombre LIKE ? ORDER BY codigo";
+
+        try (
+                Connection conn = Conexion.conectar();
+                PreparedStatement pst = conn.prepareStatement(sql)
+        ) {
+
+            pst.setString(1, "%" + texto + "%");
+
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(mapearCuenta(rs));
+                }
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error al buscar cuentas");
+            System.out.println(e.getMessage());
+        }
+
+        return lista;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Buscar una cuenta por código
+    // ══════════════════════════════════════════════════════════════
+    public Cuenta buscarCuenta(String codigo){
+
+    Cuenta cuenta = null;
+
+    String sql = "SELECT * FROM cuentas WHERE codigo = ?";
+
+    try(Connection conn = Conexion.conectar();
+
+        PreparedStatement ps = conn.prepareStatement(sql)){
+
+        ps.setString(1, codigo);
+
+        ResultSet rs = ps.executeQuery();
+
+        if(rs.next()){
+
+            cuenta = new Cuenta(
+
+                rs.getString("codigo"),
+
+                rs.getInt("grupo_id"),
+
+                rs.getInt("tipo"),
+
+                rs.getInt("rubro_id"),
+
+                rs.getInt("numero_cuenta"),
+
+                rs.getString("nombre"),
+
+                rs.getDouble("saldo"),
+
+                rs.getString("tipo_saldo")
+
+            );
+        }
+    }catch(SQLException e){
+        e.printStackTrace();
+    }
+    return cuenta;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  ACTUALIZAR SALDO
+    // ══════════════════════════════════════════════════════════════
+    public boolean actualizarSaldo(String codigo,double nuevoSaldo){
+
+    String sql="""
+        UPDATE cuentas
+        SET saldo=?
+        WHERE codigo=?
+        """;
+
+    try(Connection conn=Conexion.conectar();
+        PreparedStatement ps=conn.prepareStatement(sql)){
+
+        ps.setDouble(1,nuevoSaldo);
+        ps.setString(2,codigo);
+
+        return ps.executeUpdate()>0;
+
+    }catch(SQLException e){
+
+        System.out.println(e.getMessage());
+
+    }
+
+    return false;
+
+    }
+
+
+
 }

@@ -48,6 +48,50 @@ CREATE TABLE asiento_detalle (
     FOREIGN KEY (cuenta_codigo) REFERENCES cuentas(codigo)
 );
 
+CREATE TABLE iva_compras (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    asiento_id         INT NOT NULL,
+    fecha              DATE NOT NULL,
+    nro_comprobante    VARCHAR(20) NOT NULL,
+    tipo_comprobante   VARCHAR(40) NOT NULL,
+    cuit               VARCHAR(13) NOT NULL,
+    razon_social       VARCHAR(100) NOT NULL,
+    condicion_iva      VARCHAR(30) NOT NULL DEFAULT '',
+    neto_gravado       DECIMAL(11,2) NOT NULL,
+    neto_no_gravado    DECIMAL(14,2) NOT NULL DEFAULT 0,
+    exento             DECIMAL(14,2) NOT NULL DEFAULT 0,
+    alicuota           DECIMAL(5,2) NOT NULL DEFAULT 0,
+    iva                DECIMAL(11,2) NOT NULL,
+    total              DECIMAL(11,2) NOT NULL,
+    punto_venta        INT NOT NULL DEFAULT 0,
+    dni                VARCHAR(8) NOT NULL DEFAULT '',
+    otros_percepciones DECIMAL(11,2) NOT NULL DEFAULT 0,
+    horas              DECIMAL(11,2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (asiento_id) REFERENCES asientos(id)
+);
+
+CREATE TABLE iva_ventas (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    asiento_id         INT NOT NULL,
+    fecha              DATE NOT NULL,
+    nro_comprobante    VARCHAR(20) NOT NULL,
+    tipo_comprobante   VARCHAR(40) NOT NULL,
+    cuit               VARCHAR(13) NOT NULL,
+    razon_social       VARCHAR(100) NOT NULL,
+    condicion_iva      VARCHAR(30) NOT NULL DEFAULT '',
+    neto_gravado       DECIMAL(11,2) NOT NULL,
+    neto_no_gravado    DECIMAL(14,2) NOT NULL DEFAULT 0,
+    exento             DECIMAL(14,2) NOT NULL DEFAULT 0,
+    alicuota           DECIMAL(5,2) NOT NULL DEFAULT 0,
+    iva                DECIMAL(11,2) NOT NULL,
+    total              DECIMAL(11,2) NOT NULL,
+    punto_venta        INT NOT NULL DEFAULT 0,
+    dni                VARCHAR(8) NOT NULL DEFAULT '',
+    otros_percepciones DECIMAL(11,2) NOT NULL DEFAULT 0,
+    horas              DECIMAL(11,2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (asiento_id) REFERENCES asientos(id)
+);
+
 INSERT INTO grupos (id, nombre) VALUES
     (1, 'Activo'), (2, 'Pasivo'), (3, 'Patrimonio Neto'),
     (4, 'Ingresos'), (5, 'Egresos');

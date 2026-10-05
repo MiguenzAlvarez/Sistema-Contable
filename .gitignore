@@ -5,3 +5,6 @@
 *.jar
 .env
 nbproject/private/
+hs_err_pid*.log
+replay_pid*.log
+/backups/

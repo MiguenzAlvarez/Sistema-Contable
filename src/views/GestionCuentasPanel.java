@@ -185,28 +185,8 @@ public class GestionCuentasPanel extends JFrame {
         JPanel der = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         der.setOpaque(false);
 
-        // Navegación hacia el Libro Diario
-        JButton btnIrLibroDiario = new JButton("📖  Libro Diario") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(255, 255, 255, 55) : new Color(255, 255, 255, 30));
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
-                g2.setColor(Color.WHITE);
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(),
-                    (getWidth()  - fm.stringWidth(getText())) / 2,
-                    (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-            }
-        };
-        btnIrLibroDiario.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnIrLibroDiario.setPreferredSize(new Dimension(150, 36));
-        btnIrLibroDiario.setOpaque(false); btnIrLibroDiario.setContentAreaFilled(false);
-        btnIrLibroDiario.setBorderPainted(false); btnIrLibroDiario.setFocusPainted(false);
-        btnIrLibroDiario.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnIrLibroDiario.addActionListener(e -> SwingUtilities.invokeLater(views.LibroDiarioPanel::new));
-        der.add(btnIrLibroDiario);
+        // Navegación hacia las otras pantallas del sistema
+        der.add(views.BarraNavegacion.crear(GestionCuentasPanel.class));
 
         String[] simbolos  = {"-", "[ ]", "X"};
         for (String sym : simbolos) {
@@ -235,6 +215,7 @@ public class GestionCuentasPanel extends JFrame {
         header.add(der, BorderLayout.EAST);
         return header;
     }
+
     // ══════════════════════════════════════════════════════════════════════════
     //  PESTAÑAS
     // ══════════════════════════════════════════════════════════════════════════

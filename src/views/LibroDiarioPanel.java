@@ -5,6 +5,8 @@ import dao.CuentaDAO;
 import models.Asiento;
 import models.AsientoDetalle;
 import models.Cuenta;
+import models.RegistroIva;
+import models.ImportesIva;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -69,6 +71,8 @@ public class LibroDiarioPanel extends JFrame {
     // ── Componentes del formulario de alta ─────────────────────────────────────
     private JTextField txtFecha;
     private JTextField txtConcepto;
+    private JComboBox<String> cboOperacion;
+    private DatosIvaPanel datosIva;
     private JTable      tablaDetalle;
     private DefaultTableModel modeloDetalle;
     private JLabel      lblTotalDebe;
@@ -185,32 +189,9 @@ public class LibroDiarioPanel extends JFrame {
         izq.add(titulos);
         header.add(izq, BorderLayout.WEST);
 
-        // Navegación hacia Gestión de Cuentas
-        JPanel der = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        der.setOpaque(false);
-        JButton btnIrCuentas = new JButton("📗  Plan de Cuentas") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(255, 255, 255, 55) : new Color(255, 255, 255, 30));
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
-                g2.setColor(Color.WHITE);
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(),
-                    (getWidth()  - fm.stringWidth(getText())) / 2,
-                    (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-            }
-        };
-        btnIrCuentas.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnIrCuentas.setPreferredSize(new Dimension(160, 36));
-        btnIrCuentas.setOpaque(false); btnIrCuentas.setContentAreaFilled(false);
-        btnIrCuentas.setBorderPainted(false); btnIrCuentas.setFocusPainted(false);
-        btnIrCuentas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnIrCuentas.addActionListener(e -> SwingUtilities.invokeLater(GestionCuentasPanel::new));
-        der.add(btnIrCuentas);
+        // Navegación hacia el resto de las pantallas del sistema
+        header.add(BarraNavegacion.crear(LibroDiarioPanel.class), BorderLayout.EAST);
 
-        header.add(der, BorderLayout.EAST);
         return header;
     }
 
@@ -257,6 +238,25 @@ public class LibroDiarioPanel extends JFrame {
         aplicarLimiteCaracteres(txtConcepto, 200);
         gbc.gridx = 3; gbc.weightx = 1; gbc.fill = GridBagConstraints.HORIZONTAL;
         cabecera.add(txtConcepto, gbc);
+
+        JLabel lblOperacion = new JLabel("Tipo de operación:");
+        lblOperacion.setFont(FUENTE_LABEL);
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
+        cabecera.add(lblOperacion, gbc);
+        cboOperacion = new JComboBox<>(new String[]{"Asiento general sin IVA", "Compra", "Venta"});
+        cboOperacion.setFont(FUENTE_CAMPO);
+        cboOperacion.setPreferredSize(new Dimension(260, 38));
+        lblOperacion.setLabelFor(cboOperacion);
+        gbc.gridx = 1; gbc.gridwidth = 3;
+        cabecera.add(cboOperacion, gbc);
+        datosIva = new DatosIvaPanel();
+        datosIva.setVisible(false);
+        cboOperacion.addActionListener(e -> {
+            datosIva.setCompra(cboOperacion.getSelectedIndex() == 1);
+            datosIva.setVisible(cboOperacion.getSelectedIndex() != 0);
+            revalidate();
+            repaint();
+        });
 
         // ── Tabla de líneas (Cuenta / Debe / Haber) ─────────────────────────
         String[] columnasDetalle = {"Cuenta", "Debe", "Haber"};
@@ -347,6 +347,7 @@ public class LibroDiarioPanel extends JFrame {
         centro.setLayout(new BoxLayout(centro, BoxLayout.Y_AXIS));
         centro.setOpaque(false);
         centro.add(cabecera);
+        centro.add(datosIva);
         centro.add(Box.createVerticalStrut(12));
         centro.add(scrollDetalle);
         centro.add(botonesLinea);
@@ -711,10 +712,9 @@ public class LibroDiarioPanel extends JFrame {
         if (valor == null) return 0.0;
         String texto = valor.toString().trim();
         if (texto.isEmpty()) return 0.0;
-        texto = texto.replace(".", "").replace(",", ".");
         try {
-            return Double.parseDouble(texto);
-        } catch (NumberFormatException e) {
+            return ImportesIva.leer(texto).doubleValue();
+        } catch (IllegalArgumentException e) {
             return 0.0;
         }
     }
@@ -771,6 +771,14 @@ public class LibroDiarioPanel extends JFrame {
 
         for (int i = 0; i < modeloDetalle.getRowCount(); i++) {
             String cuentaTexto = (String) modeloDetalle.getValueAt(i, 0);
+            try {
+                ImportesIva.leer(String.valueOf(modeloDetalle.getValueAt(i, 1)));
+                ImportesIva.leer(String.valueOf(modeloDetalle.getValueAt(i, 2)));
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Revisá los importes de la línea " + (i + 1) + ". " + ex.getMessage(),
+                        "Importe inválido", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             double debe  = parsearImporte(modeloDetalle.getValueAt(i, 1));
             double haber = parsearImporte(modeloDetalle.getValueAt(i, 2));
 
@@ -823,12 +831,26 @@ public class LibroDiarioPanel extends JFrame {
         }
 
         Asiento asiento = new Asiento(fechaSql, concepto, detalles);
-        String resultado = asientoDAO.crearAsiento(asiento);
+        RegistroIva registroIva = null;
+        if (cboOperacion.getSelectedIndex() != 0) {
+            try {
+                registroIva = datosIva.leer(java.sql.Date.valueOf(fechaSql));
+                if (Math.abs(registroIva.getTotal() - sumaDebe) >= 0.005) {
+                    throw new IllegalArgumentException("El total del comprobante (" + formatear(registroIva.getTotal())
+                        + ") debe coincidir con el total Debe y Haber del asiento.");
+                }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Revisá los datos de IVA", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        }
+        String resultado = asientoDAO.crearAsiento(asiento, registroIva, cboOperacion.getSelectedIndex() == 1);
 
         switch (resultado) {
             case "OK":
                 JOptionPane.showMessageDialog(this,
-                        "Asiento N° " + asiento.getNumero() + " guardado correctamente.");
+                        "Asiento N° " + asiento.getNumero() + " guardado correctamente."
+                        + (registroIva == null ? "" : "\nRegistro IVA: " + registroIva.getNroComprobante()));
                 limpiarFormularioAsiento();
                 cargarAsientosDesdeBD();
                 break;
@@ -844,13 +866,14 @@ public class LibroDiarioPanel extends JFrame {
                 break;
             default:
                 JOptionPane.showMessageDialog(this,
-                        "No se pudo guardar el asiento. Revisá la consola para más detalles.",
+                        "No se pudo guardar el asiento. " + asientoDAO.getUltimoError(),
                         "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     // Convierte "dd/mm/aaaa" a "yyyy-MM-dd", o null si no es válida
     private String convertirFechaASql(String fechaTexto) {
+        if (!fechaTexto.matches("\\d{2}/\\d{2}/\\d{4}")) return null;
         try {
             SimpleDateFormat entrada = new SimpleDateFormat("dd/MM/yyyy");
             entrada.setLenient(false);
@@ -862,6 +885,8 @@ public class LibroDiarioPanel extends JFrame {
     }
 
     private void limpiarFormularioAsiento() {
+        datosIva.limpiar();
+        cboOperacion.setSelectedIndex(0);
         txtConcepto.setText("");
         txtFecha.setText(new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
         modeloDetalle.setRowCount(0);

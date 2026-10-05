@@ -40,3 +40,21 @@ java -jar target/sistema-contable-1.0.0.jar
 ```
 
 El esquema que inicializa Docker está en `docker/mysql/init/01_schema.sql`. Los scripts SQL originales se mantienen para uso manual.
+
+## Libro IVA
+
+La aplicación incluye Libro IVA Compras y Ventas. En instalaciones existentes,
+ejecutar una única vez `sql/05_operaciones_iva.sql` para añadir las columnas del
+módulo sin borrar los registros ya cargados. En una instalación Docker nueva el
+esquema se crea completo automáticamente.
+
+Si ya existe el volumen de Docker de una versión anterior, aplicar la migración
+antes de reiniciar la aplicación:
+
+```bash
+docker compose exec -T db mysql -ucontable -pcontable_dev economia_db < sql/05_operaciones_iva.sql
+docker compose up --build -d
+```
+
+Si se cambiaron las credenciales en `.env`, reemplazar el usuario, contraseña y
+nombre de base del ejemplo por los valores configurados.

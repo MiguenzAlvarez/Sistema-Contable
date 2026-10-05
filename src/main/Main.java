@@ -6,10 +6,10 @@ import views.GestionCuentasPanel;
 public class Main {
 
     public static void main(String[] args) {
-        
+
         new GestionCuentasPanel();
         CuentaDAO dao = new CuentaDAO();
-        
+
         /*
         // CREAR
         Cuenta cuenta = new Cuenta(
