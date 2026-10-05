@@ -8,7 +8,7 @@ RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:21-jre-noble
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends xvfb x11vnc novnc websockify openbox \
+    && apt-get install -y --no-install-recommends xvfb x11vnc novnc websockify openbox procps \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /build/target/sistema-contable-1.0.0.jar /app/sistema-contable.jar
