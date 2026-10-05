@@ -86,6 +86,8 @@ CREATE TABLE asientos (
     numero    INT NOT NULL,
     fecha     DATE NOT NULL,
     concepto  VARCHAR(200) NOT NULL,
+    total_debe DECIMAL(11,2) NOT NULL DEFAULT 0,
+    total_haber DECIMAL(11,2) NOT NULL DEFAULT 0,
     UNIQUE KEY uq_asiento_numero (numero)
 );
 

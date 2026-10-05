@@ -2,6 +2,23 @@
 -- usar la nueva versión. Requiere que ya existan asientos y cuentas.
 USE economia_db;
 
+-- La versión actual guarda los totales del asiento; se agregan también al
+-- actualizar instalaciones creadas con el esquema inicial.
+SET @ddl_asiento = (SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE asientos ADD COLUMN total_debe DECIMAL(11,2) NOT NULL DEFAULT 0',
+    'SELECT 1') FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'asientos' AND column_name = 'total_debe');
+PREPARE migracion_asiento FROM @ddl_asiento;
+EXECUTE migracion_asiento;
+DEALLOCATE PREPARE migracion_asiento;
+SET @ddl_asiento = (SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE asientos ADD COLUMN total_haber DECIMAL(11,2) NOT NULL DEFAULT 0',
+    'SELECT 1') FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'asientos' AND column_name = 'total_haber');
+PREPARE migracion_asiento FROM @ddl_asiento;
+EXECUTE migracion_asiento;
+DEALLOCATE PREPARE migracion_asiento;
+
 -- Las instalaciones anteriores al módulo IVA no tienen estas tablas. Se crean
 -- vacías aquí; si ya existen, CREATE TABLE IF NOT EXISTS no modifica datos.
 CREATE TABLE IF NOT EXISTS iva_compras (
