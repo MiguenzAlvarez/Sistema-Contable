@@ -1,0 +1,9 @@
+.git
+.idea
+nbproject/private
+build
+dist
+target
+*.class
+*.jar
+.env
