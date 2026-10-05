@@ -50,6 +50,37 @@ public class BarraNavegacion {
         return icono;
     }
 
+    /** Ícono vectorial para el Plan de Cuentas, sin depender de una tipografía emoji. */
+    public static JLabel crearIconoPlanCuentas() {
+        JLabel icono = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(255, 255, 255, 62));
+                    g2.fillOval(0, 0, TAMANIO_ICONO, TAMANIO_ICONO);
+                    g2.setColor(Color.WHITE);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    // Plan de cuentas: nodos vinculados que representan la jerarquía contable.
+                    g2.drawRoundRect(18, 10, 10, 7, 2, 2);
+                    g2.drawLine(23, 17, 23, 22);
+                    g2.drawLine(13, 22, 33, 22);
+                    g2.drawLine(13, 22, 13, 27);
+                    g2.drawLine(23, 22, 23, 27);
+                    g2.drawLine(33, 22, 33, 27);
+                    g2.fillRoundRect(8, 27, 10, 8, 2, 2);
+                    g2.fillRoundRect(18, 27, 10, 8, 2, 2);
+                    g2.fillRoundRect(28, 27, 10, 8, 2, 2);
+                } finally {
+                    g2.dispose();
+                }
+            }
+        };
+        icono.setPreferredSize(new Dimension(TAMANIO_ICONO, TAMANIO_ICONO));
+        return icono;
+    }
+
     /** Barra completa: navegación entre módulos y controles de la ventana real. */
     public static JPanel crearConControles(Class<?> pantallaActual) {
         JPanel area = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
@@ -80,8 +111,10 @@ public class BarraNavegacion {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(255, 255, 255, 55) : new Color(255, 255, 255, 30));
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
+                g2.setColor(getModel().isRollover() ? new Color(255, 255, 255, 72) : new Color(255, 255, 255, 34));
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
+                g2.setColor(new Color(255, 255, 255, 55));
+                g2.draw(new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 10, 10));
                 g2.setColor(Color.WHITE);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();

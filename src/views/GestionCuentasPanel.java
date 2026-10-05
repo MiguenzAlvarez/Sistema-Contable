@@ -141,6 +141,8 @@ public class GestionCuentasPanel extends JFrame {
                 GradientPaint gp = new GradientPaint(0, 0, AZUL_HEADER, getWidth(), 0, AZUL_OSCURO);
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(108, 170, 255, 185));
+                g2.fillRect(0, getHeight() - 3, getWidth(), 3);
             }
         };
         header.setPreferredSize(new Dimension(0, 88));
@@ -150,20 +152,7 @@ public class GestionCuentasPanel extends JFrame {
         JPanel izq = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
         izq.setOpaque(false);
 
-        // Ícono banco
-        JLabel icono = new JLabel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(255, 255, 255, 50));
-                g2.fillOval(0, 0, 46, 46);
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 24));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("🏛", (46 - fm.stringWidth("🏛")) / 2, 31);
-            }
-        };
-        icono.setPreferredSize(new Dimension(46, 46));
+        JLabel icono = BarraNavegacion.crearIconoPlanCuentas();
 
         JPanel titulos = new JPanel();
         titulos.setLayout(new BoxLayout(titulos, BoxLayout.Y_AXIS));
@@ -410,7 +399,7 @@ public class GestionCuentasPanel extends JFrame {
         JPanel p = new JPanel();
         p.setBackground(Color.WHITE);
         p.setBorder(new CompoundBorder(
-            new LineBorder(BORDE_COLOR, 1, true),
+            new LineBorder(new Color(211, 222, 239), 1, true),
             new EmptyBorder(20, 22, 20, 22)
         ));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);

@@ -151,6 +151,8 @@ public class LibroDiarioPanel extends JFrame {
                 GradientPaint gp = new GradientPaint(0, 0, AZUL_HEADER, getWidth(), 0, AZUL_OSCURO);
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(108, 170, 255, 185));
+                g2.fillRect(0, getHeight() - 3, getWidth(), 3);
             }
         };
         header.setPreferredSize(new Dimension(0, 88));
@@ -450,7 +452,7 @@ public class LibroDiarioPanel extends JFrame {
         JPanel p = new JPanel();
         p.setBackground(Color.WHITE);
         p.setBorder(new CompoundBorder(
-            new LineBorder(BORDE_COLOR, 1, true),
+            new LineBorder(new Color(211, 222, 239), 1, true),
             new EmptyBorder(20, 22, 20, 22)
         ));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
