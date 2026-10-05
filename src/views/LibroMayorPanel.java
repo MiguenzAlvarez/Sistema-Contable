@@ -118,7 +118,7 @@ public class LibroMayorPanel extends JFrame {
 
         izq.add(titulos);
         header.add(izq, BorderLayout.WEST);
-        header.add(BarraNavegacion.crear(LibroMayorPanel.class), BorderLayout.EAST);
+        header.add(BarraNavegacion.crearConControles(LibroMayorPanel.class), BorderLayout.EAST);
         return header;
     }
 

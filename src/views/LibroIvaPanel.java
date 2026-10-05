@@ -122,7 +122,7 @@ public class LibroIvaPanel extends JFrame {
         titulos.add(lblSubtitulo);
 
         header.add(titulos, BorderLayout.WEST);
-        header.add(BarraNavegacion.crear(LibroIvaPanel.class), BorderLayout.EAST);
+        header.add(BarraNavegacion.crearConControles(LibroIvaPanel.class), BorderLayout.EAST);
         return header;
     }
 

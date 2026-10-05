@@ -190,7 +190,7 @@ public class LibroDiarioPanel extends JFrame {
         header.add(izq, BorderLayout.WEST);
 
         // Navegación hacia el resto de las pantallas del sistema
-        header.add(BarraNavegacion.crear(LibroDiarioPanel.class), BorderLayout.EAST);
+        header.add(BarraNavegacion.crearConControles(LibroDiarioPanel.class), BorderLayout.EAST);
 
         return header;
     }
