@@ -139,6 +139,6 @@ pom.xml           Compilación y empaquetado Maven
 
 Para más detalles de la carga de comprobantes, consultar [Operaciones con IVA](OPERACIONES_IVA.md).
 
-## Origen del proyecto
+## Proyecto colaborativo
 
-Esta versión parte de [ValentinaAle/Sistema-Contable](https://github.com/ValentinaAle/Sistema-Contable) y conserva su historial de desarrollo. La copia de este repositorio se mantiene en [MiguenzAlvarez/Sistema-Contable](https://github.com/MiguenzAlvarez/Sistema-Contable).
+Este proyecto se desarrolla de forma colaborativa como parte de una aplicación para una materia del último año de la carrera. Integra los aportes del equipo para implementar un sistema contable y aplicar los conocimientos adquiridos durante la formación.
